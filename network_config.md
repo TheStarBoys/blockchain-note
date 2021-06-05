@@ -1,27 +1,6 @@
-# blockchain-note
-This is a note about blockchain.
+# Network Config
 
 
-
-## Catalogue
-
-- BitCoin
-  - Block
-  - Blockchain
-  - UTXO
-  - Transaction
-  - Merkel Tree
-  - Address
-  - Wallet
-- ETH(Ethereum)
-  - Smart Contract
-  - EVM
-
-
-
-# Common Network Config
-
-> [See more](./network_config.md)
 
 ## Heco
 
