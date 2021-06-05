@@ -1,6 +1,6 @@
 # Ethereum
 
-[office website](https://ethereum.org/en/)
+[official website](https://ethereum.org/en/)
 
 
 
