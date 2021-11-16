@@ -1,77 +1,23 @@
-# Ethereum
+
+
+# Ethereum Note
 
 [official website](https://ethereum.org/en/)
 
 
 
-## Development environment setup
+## Note
 
-Before starting setup, we need setup go env.
-
-```bash
-export GO111MODULE=on
-export GOPROXY=https://goproxy.cn
-```
-
-
-
-### For Windows user
-
-**1. Download MinGW**
-
-[download](https://netactuate.dl.sourceforge.net/project/mingw-w64/Toolchains%20targetting%20Win64/Personal%20Builds/mingw-builds/4.8.2/threads-posix/seh/x86_64-4.8.2-release-posix-seh-rt_v3-rev2.7z)
-
-setup environment variable: path.
-
-
-
-**2. Get source code of go-ethereum**
-
-```bash
-go get -u github.com/ethereum/go-ethereum
-```
-
-
-
-**3. Download Geth**
-
-To download Geth, go to the [Downloads page](https://geth.ethereum.org/downloads) and select the latest stable release matching your platform.
-
-
-
-**4. install solidity compiler**
-
-We use directly binary package, [click here](https://github.com/ethereum/solidity/releases)
-
-In this page, select a version that you need.
-
-I suggest to select newest version now,  which is 0.7.0.
-
-You can [click here](https://github.com/ethereum/solidity/releases/download/v0.7.0/solidity-windows.zip) to download directly.
-
-After the download, you need to setup environment which is path.
-
-
-
-**5. Get abigen tool**
-
-```bash
-cd $GOPATH/src/github.com/ethereum/go-ethereum/
-make
-make devtools
-```
-
-
-
-### For Mac user
-
-
-
-
-
-### For Linux user
-
-
+- Core
+  - Consensus
+    - Clique
+- Smart Contract
+  - Precompiled Contract
+  - Solidity
+    - ERC20
+    - ERC721
+  - DApp
+    - Stack
 
 ## Resource
 
@@ -81,13 +27,19 @@ make devtools
     - [Developer resource](https://ethereum.org/zh/developers/)
     - [Ethereum development with Go](https://goethereumbook.org/zh/)
     - [Go Ethereum](https://geth.ethereum.org/)
-- Solidity
-  - Doc
-    - [en doc](https://solidity.readthedocs.io/en/v0.7.0/introduction-to-smart-contracts.html)
-    - [Tutorial](https://github.com/ethereum/go-ethereum/wiki/Contract-Tutorial)
-  - IDE
-    - [Ethereum Studio](https://studio.ethereum.org/)
-    - [Remix](https://remix.ethereum.org/)
+  - Core
+    - Consensus
+  - Smart Contract
+    - Solidity
+      - Doc
+        - [en doc](https://solidity.readthedocs.io/en/v0.7.0/introduction-to-smart-contracts.html)
+        - [Tutorial](https://github.com/ethereum/go-ethereum/wiki/Contract-Tutorial)
+      - IDE
+        - [Ethereum Studio](https://studio.ethereum.org/)
+        - [Remix](https://remix.ethereum.org/)
+    - DApp
+      - DEX
+      - TheGraph
 
 
 
@@ -168,13 +120,13 @@ abigen --bin=Storage.bin --abi=Storage.abi --pkg=example --out=Storage.go
 
 
 
-## Q&A
+## Stack
 
-**Q1. geth attach error: Unable to attach to remote geth: no known transport for URL scheme "c"**
+[The Ethereum Stack](https://ethereum.org/en/developers/docs/#the-ethereum-stack)
 
-A1.
 
-```bash
-geth attach ipc:\\.\pipe\geth.ipc
-```
+
+## Layer2
+
+[Optimistic Rollup最全指南：这里有你该知道的一切](https://www.8btc.com/article/6590587)
 
