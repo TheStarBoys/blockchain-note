@@ -1,0 +1,2 @@
+- [Bad Sandwich: DeFi Trader 'Poisons' Front-Running Miners for $250K Profit](https://www.coindesk.com/tech/2021/03/22/bad-sandwich-defi-trader-poisons-front-running-miners-for-250k-profit/)
+- [DEFI Sandwich Attack Explain](https://medium.com/coinmonks/defi-sandwich-attack-explain-776f6f43b2fd)
