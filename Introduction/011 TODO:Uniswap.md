@@ -14,7 +14,7 @@ $$
 $$
 amountOut = \frac{reserveOut}{\frac{reserveIn}{amountIn} + 1}
 $$
-Uniswap 协议将收取 0.3% 作为 LPs 的服务费（近似值）：
+Uniswap 协议将收取 0.3% 作为 LPs 的服务费（简化写法，由于是整型，1*1000/997 仍然是 1）：
 $$
 amountOut = \frac{reserveOut}{\frac{reserveIn}{amountIn} * \frac{1000}{997} + 1}
 $$
