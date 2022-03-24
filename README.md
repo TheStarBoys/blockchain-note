@@ -16,4 +16,5 @@ This is a note about blockchain.
 - ETH(Ethereum)
   - Smart Contract
   - EVM
+  - [Interview questions](./ETH/interview/README.md)
 

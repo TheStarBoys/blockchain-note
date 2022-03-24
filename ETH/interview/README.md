@@ -10,7 +10,7 @@ Q：什么是 UTXO？
 
 
 
-Q：为什么比特币需要 UTXO？
+Q：为什么比特币需要 UTXO（它实际解决了什么问题）？
 
 
 
@@ -22,7 +22,7 @@ Q：UTXO 跟账户模型的区别与联系？
 
 #### Merkel Tree 及其变种
 
-Q: 讲讲 Merkel Tree 的工作原理
+Q：讲讲 Merkel Tree 的工作原理
 
 
 
@@ -40,11 +40,13 @@ Q：Merkel Tree 有哪些应用？
 
 Q：什么是哈希冲突？如果出现哈希冲突，意味着什么？
 
+A：哈希冲突意味着两个不同的值 x 与 y，能够得到 Hash(x) == Hash(y)，这便是哈希冲突。在哈希表中，如果出现哈希冲突，则会导致旧值被覆盖。
 
 
-Q：你能实现一个简单的哈希算法吗？
 
+Q：你能实现一个简单的哈希表吗？
 
+A：[参见此文](https://github.com/TheStarBoys/implement-algorithms-with-golang/blob/master/book/dataStructure/hashTable.md)
 
 #### 加密算法
 
@@ -110,7 +112,9 @@ Q：简单讲一讲 PoW 的实现思路
 
 
 
-Q：PoW 的分叉选择规则是什么（如何确定最长合法链）？
+**Q：PoW 的分叉选择规则是什么（如何确定最长合法链）？**
+
+A：工作量最大的那条链为最长合法链。
 
 
 
@@ -125,6 +129,10 @@ Q：PoS 的分叉选择规则是什么（如何确定最长合法链）？
 Q：PoS 与 DPoS 的相同点与不同点是什么？
 
 
+
+**Q：DPoS 中如果一个节点同时在两个分叉投票，如何惩罚？**
+
+A：投票行为需要节点进行签名，当检举者收到一个投票广播，发现该投票人已经投过票，即此时检举者收到了两份投票的证明，将此证明包含进区块链，即可触发惩罚。
 
 
 
@@ -194,6 +202,18 @@ Q：列举一下哪些情况下，合约调用会失败。
 
 Q：了解过 opcode 吗？
 
+
+
+Q：如何实现可升级合约？
+
+
+
+Q：如何实现 Proxy？
+
+
+
+Q：
+
 ### 测试
 
 Q：你有为合约编写过测试吗？你是如何进行测试的？
@@ -222,6 +242,10 @@ Q：知道如何验证合约吗？
 
 A：
 
+
+
+[优化详情](../smart_contract/Optimization.md)
+
 ### 安全性
 
 Q：什么是重入攻击？
@@ -233,6 +257,10 @@ Q：如何避免整数溢出？
 
 
 Q：你用过哪些安全检测工具？
+
+
+
+[安全性详情](../smart_contract/Security/)
 
 ### 标准与协议
 
@@ -262,6 +290,8 @@ A：一部分合约的返回值是正常的，一部分是异常的。因为这�
 
 
 
+[ERC20详情](../EIPs/ERC/ERC20.md)
+
 #### ERC721
 
 **Q：ERC721 标准中的 tokenUri 决定了其元数据存储位置，能讲讲为什么不直接存储在链上吗？常见的数据存储方式有哪些？它们各自的优点以及缺点？**
@@ -270,7 +300,7 @@ A：由于链上的所有数据，所有全节点都会存储，存储成本高�
 
 
 
-
+[ERC721详情](../../Introduction/004 什么是 NFT.md)
 
 #### ERC1155
 
@@ -324,21 +354,46 @@ A：NFT 数据/元数据存储的地方，以减轻链上存储成本。NFT 的 
 
 ### 应用
 
-Yield Farming
+#### Yield Farming
 
-DAO
+#### [DAO](../../Introduction/017 什么是DAO.md)
 
-元交易
+#### [元交易](../smart_contract/MetaTx/元交易（Metatransaction）系列一，什么是元交易？.md)
 
-多重签名钱包
+#### 多重签名钱包
 
-预言机
+#### 预言机
 
-跨链
+**Q：预言机是什么？**
 
-侧链
+A：预言机是真实世界与区块链的桥梁。它们扮演一个链上 API 的角色，以查询链下数据。这些数据可以是价格信息、天气报告、体育比赛结果等。
 
-事件索引服务
+**Q：讲一讲简单的预言机的架构实现**
+
+A：下面我将讲述一个简单的示例，但显然有更多触发链下计算的方式：
+
+1. 在你的合约上发出一个事件
+2. 链下服务订阅这些事件
+3. 链下服务根据事件执行某些任务
+4. 链下服务发起新的交易，带上请求的数据，以响应智能合约。
+
+更进一步的话，可能是建立这些节点的网络，对不同的api和源进行调用，并聚合链上的数据。
+
+
+
+#### 跨链
+
+#### 侧链
+
+**Q：什么是侧链？**
+
+A：侧链是与以太坊主网并行运行并独立运行的独立区块链。它有自己的[共识算法](https://ethereum.org/en/developers/docs/consensus-mechanisms/)（例如 Proof of Authority、Delegated Proof of Stake，拜占庭容错算法）。它通过双向网桥连接到主网。它与 EVM 兼容，不受 Layer 1 保护（因此，严格来说，它不是 Layer 2）。
+
+
+
+#### 事件索引服务
+
+
 
 ### 工程
 
@@ -357,3 +412,21 @@ A：首先确定你使用 call 操作时，from 指定的地址是什么，查�
 **Q：你在有的链上调用合约失败会带有 require 函数中的提示信息，而有的链没有，这是为什么以及如何解决？**
 
 A：考虑是目标链版本过低，这是曾经的一个 go-ethereum 的 [issue 为21083](https://github.com/ethereum/go-ethereum/pull/21083) ，并在该 [commit](https://github.com/ethereum/go-ethereum/commit/0b3f3be2b5dde72c6292bfb16915ad763d4aa0bd) 中被修复。原因是老版本不支持返回 revert 时的错误信息。
+
+
+
+**Q：在智能合约中实现一个安全的随机数是很困难的，目前有解决方案吗？**
+
+A：Chainlin VRF（Verifiable Random Function可验证随机函数）是为智能合约设计的可证明公平和可验证的随机性来源。
+
+
+
+**Q：EVM 链的智能合约不能在任意时间或任意条件下触发或执行自己的函数。只有当另一个帐户发起交易（例如用户、oracle或合约）时才会发生状态更改。如何才能做到让智能合约在任意时间或任意条件下触发或执行自己的函数？**
+
+A：直接参见 [Chainlink Keepers](https://docs.chain.link/docs/chainlink-keepers/introduction/) 文档。
+
+
+
+**Q：truffle 出现错误 “Transaction exited with an error (status 0) after consuming all gas” 如何解决？**
+
+A：[参考](https://ethereum.stackexchange.com/questions/71481/transaction-exited-with-an-error-status-0-after-consuming-all-gas)，硬编码 gas、gasPrice 值。
