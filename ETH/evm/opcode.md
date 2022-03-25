@@ -4,6 +4,8 @@
 
 本文档不会列出全部 opcode，只是**列出合约开发需要掌握的重点**，如果对全部内容感兴趣，可以参考[此处](https://www.ethervm.io/)。
 
+
+
 ## Create
 
 栈： [value, offset, size, ...]
@@ -32,7 +34,7 @@
 
 参数解析：addr 为目标合约地址。
 
-操作：将 tmp 出栈，gas 在 interpreter.evm.callGasTemp 中拿到，依次将 addr, value, inOffset, inSize, retOffset, retSize 值出栈。从 memory[inOffset, inOffset + inSize] 拿到调用参数，调用 Call（这里可能存在递归），根据执行结果，成功则将 tmp 赋值为 1（true），否则为 0（false）。将 tmp 放入栈中。
+操作：将 tmp 出栈，gas 在 interpreter.evm.callGasTemp 中拿到，依次将 addr, value, inOffset, inSize, retOffset, retSize 值出栈。从 memory[inOffset, inOffset + inSize] 拿到调用参数，调用 `evm.Call`（这里可能存在递归），根据执行结果，成功则将 tmp 赋值为 1（true），否则为 0（false）。将 tmp 放入栈中。
 
 返回值：[success, ...]
 
@@ -40,13 +42,14 @@
 
 
 
-## Callcode
+## CallCode
 
-
+作用：与 Call 的不同处在于，它调用 `evm.CallCode`。
 
 ## DelegateCall
 
+作用：与 Call 不同处在于，它调用 `evm.DelegateCall`。
 
+## StaticCall
 
-## Static Call
-
+作用：与 Call 不同处在于，它只读，任何的写操作会导致异常。
