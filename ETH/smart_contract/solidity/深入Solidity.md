@@ -360,7 +360,30 @@ struct S {
 
 ## Calldata 的布局
 
+假定函数调用的输入数据采用[ABI 规范](https://docs.soliditylang.org/en/v0.8.11/abi-spec.html#abi)定义的格式。其中，ABI 规范要求将参数填充为 32 字节的倍数。内部函数调用使用不同的约定。
+
+合约构造函数的参数直接附加在合约代码的末尾，同样采用 ABI 编码。构造函数将通过硬编码的偏移量访问它们，而不是使用 `codesize` 操作码，因为在将数据附加到代码时这当然会改变。
+
+
+
 ## 清除变量
+
+当一个值小于 256 位，这个情况下剩余比特必须清空。在任何可能由于剩余比特的脏数据受到不利影响的操作之前，Solidity 编译器会去清理这些剩余比特。例如，在写一个值到内存之前，剩余比特需要清空，因为内存的内容可以用于计算哈希值或作为一个消息调用的数据发送。相似地，在存储一个值到存储之前，剩余比特需要清空，否则会干扰数据。
+
+注意，通过内联汇编访问不被认为是这样的操作：如果你使用内联汇编访问小于 256 位的solididity变量，编译器不能保证该值被正确清理。
+
+此外，如果紧随其后的操作不受影响，我们不会清除比特。例如，由于 `JUMPI` 指令认为任何非零值都为 `true`，所以在将布尔值用作 `JUMPI` 的条件之前，我们不会清除它们。
+
+除了上面的设计原则外，Solidity 编译器在将输入数据加载到堆栈时也会清理输入数据。 不同的类型有不同的清理无效值的规则：
+
+| Type              | Valid Values       | Invalid Values Mean                                          |
+| ----------------- | ------------------ | ------------------------------------------------------------ |
+| enum of n members | 0 until n - 1      | exception                                                    |
+| bool              | 0 or 1             | 1                                                            |
+| signed integers   | sign-extended word | currently silently wraps; in the future exceptions will be thrown |
+| unsigned integers | higher bits zeroed | currently silently wraps; in the future exceptions will be thrown |
+
+
 
 ## 合约元数据
 
