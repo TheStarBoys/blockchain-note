@@ -20,17 +20,37 @@
 
 结构体和数组的元素依次存储，就好像它们是独立的值一样。
 
+> 注意：
+>
+> 常量不是状态变量，无法对其使用 `.slot` 和 `.offset` 。
+
 ### 映射和动态数组
 
 由于它们的大小无法预测，映射和动态数组不能存储在它们上下的状态变量中间。相反，它们根据上述规则占据 32 字节，它们存储的元素从一个由 `Keccak-256` 计算出的新的存储槽开始。
 
 假设，在使用存储布局规则后，映射或动态数组的存储位置最终是存储槽 `p`。对于动态数组，这个存储槽存储数组中的元素个数（byte 数组和字符串除外）。对于映射，这个存储槽一直是空的，但它仍然需要确保，即便有两个相邻的映射，它们的内容最终在不同的存储槽位置。
 
-数组数据在 `keccak245(p)` 存储槽开始，并且以与定长数组相同的方式排列：一个元素挨一个元素，如果元素长度不超过 16 字节，可能共享同一个存储槽。动态数组的动态数组递归地应用此规则。元素 `x[i][j]` 的位置（`x`的类型为 `uint24[][]` ）由计算方法如下（假定 `x` 本身存储在槽 `p`）：
+#### 数组
+
+数组数据在 `keccak245(p)` 存储槽开始，并且以与定长数组相同的方式排列：一个元素挨一个元素，如果元素长度不超过 16 字节，可能共享同一个存储槽。动态数组的动态数组递归地应用此规则。
+
+元素 `x[i]` 的位置（`x` 的类型为 `uint256[]`），计算方法如下（假定 `x` 本身存储在槽 `p`）：
+
+Slot = `keccak256(p)`
+
+the data of elemt = `keccak256(p) + i`
+
+
+
+元素 `x[i][j]` 的位置（`x`的类型为 `uint24[][]` ）计算方法如下（假定 `x` 本身存储在槽 `p`）：
 
 Slot = `keccak256(keccak256(p) + i) + floor(j / floor(256 / 24))`
 
 the data of element = `(v >> ((j % floor(256 / 24)) * 24)) & type(uint24).max` 其中 `v` 是存储槽中的数据。
+
+
+
+#### 映射
 
 映射的 key `k` 对应存储的数据的位置计算方式： `keccak256(h(k) . p)`，其中 `.` 是连接符，`h` 是一个函数，它根据 `k` 的类型采用不同的手段：
 
@@ -363,6 +383,65 @@ struct S {
 假定函数调用的输入数据采用[ABI 规范](https://docs.soliditylang.org/en/v0.8.11/abi-spec.html#abi)定义的格式。其中，ABI 规范要求将参数填充为 32 字节的倍数。内部函数调用使用不同的约定。
 
 合约构造函数的参数直接附加在合约代码的末尾，同样采用 ABI 编码。构造函数将通过硬编码的偏移量访问它们，而不是使用 `codesize` 操作码，因为在将数据附加到代码时这当然会改变。
+
+
+
+## 有助于理解布局的示例
+
+[从私有数据中读取信息](https://mp.weixin.qq.com/s/_DV6UaRdA_6pUFXt-EnTtA)：
+
+```solidity
+contract Vault {
+    uint public count = 123; // slot 0
+    // slot 1
+    address public owner = msg.sender;
+    bool public isTrue = true;
+    uint16 public u16 = 31;
+
+    bytes32 private password; // slot 2
+    uint public constant someConst = 123; // slot 3
+    bytes32[3] public data;
+
+    struct User {
+        uint id;
+        bytes32 password;
+    }
+    User[] private users; // slot 6
+    mapping(uint => User) private idToUser; // slot 7
+
+    constructor(uint _password) {
+        password = bytes32(_password);
+    }
+
+    function addUser(bytes32 _password) public {
+        User memory user = User({id: users.length, password: _password});
+
+        users.push(user);
+        idToUser[user.id] = user;
+    }
+    
+    function getStorageKey(uint slot) public pure returns (bytes32) {
+        return bytes32(keccak256(abi.encodePacked(slot)));
+    }
+
+    function getStorageAt(uint slot) public view returns (bytes32 ret) {
+        assembly {
+            ret := sload(slot)
+        }
+    }
+
+    function getArrayDataSlotGivenIndex(
+        uint slot,
+        uint index
+    ) public pure returns (bytes32) {
+        return bytes32(uint(keccak256(abi.encodePacked(slot))) + index);
+    }
+
+    function getMapLocation(uint slot, uint key) public pure returns (uint) {
+        return uint(keccak256(abi.encodePacked(key, slot)));
+    }
+}
+```
 
 
 
@@ -1029,6 +1108,293 @@ JSON 中的结果是：
 
 
 ## 内联汇编
+
+### 内联汇编
+
+内联汇编由 `assembly {}` 标记，其中，大括号内的代码是 Yul 语言的代码。
+
+以下示例提供库代码来访问另一个合约的代码并将其加载到 `bytes` 变量中。这也可以简单地使用 solidity 代码  `<address>.code` 实现。但重点是，可复用的汇编库可以在不更改编译器的情况下，增强 solidity 语言。
+
+```solidity
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity >=0.4.16 <0.9.0;
+
+library GetCode {
+    function at(address _addr) public view returns (bytes memory o_code) {
+        assembly {
+            // retrieve the size of the code, this needs assembly
+            let size := extcodesize(_addr)
+            // allocate output byte array - this could also be done without assembly
+            // by using o_code = new bytes(size)
+            o_code := mload(0x40)
+            // new "memory end" including padding
+            mstore(0x40, add(o_code, and(add(add(size, 0x20), 0x1f), not(0x1f))))
+            // store length in memory
+            mstore(o_code, size)
+            // actually retrieve the code, this needs assembly
+            extcodecopy(_addr, add(o_code, 0x20), 0, size)
+        }
+    }
+}
+```
+
+在优化器无法生成高效代码的情况下，内联汇编也很有用，例如：
+
+```solidity
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity >=0.4.16 <0.9.0;
+
+
+library VectorSum {
+    // This function is less efficient because the optimizer currently fails to
+    // remove the bounds checks in array access.
+    function sumSolidity(uint[] memory _data) public pure returns (uint sum) {
+        for (uint i = 0; i < _data.length; ++i)
+            sum += _data[i];
+    }
+
+    // We know that we only access the array in bounds, so we can avoid the check.
+    // 0x20 needs to be added to an array because the first slot contains the
+    // array length.
+    function sumAsm(uint[] memory _data) public pure returns (uint sum) {
+        for (uint i = 0; i < _data.length; ++i) {
+            assembly {
+                sum := add(sum, mload(add(add(_data, 0x20), mul(i, 0x20))))
+            }
+        }
+    }
+
+    // Same as above, but accomplish the entire code within inline assembly.
+    function sumPureAsm(uint[] memory _data) public pure returns (uint sum) {
+        assembly {
+            // Load the length (first 32 bytes)
+            let len := mload(_data)
+
+            // Skip over the length field.
+            //
+            // Keep temporary variable so it can be incremented in place.
+            //
+            // NOTE: incrementing _data would result in an unusable
+            //       _data variable after this assembly block
+            let data := add(_data, 0x20)
+
+            // Iterate until the bound is not met.
+            for
+                { let end := add(data, mul(len, 0x20)) }
+                lt(data, end)
+                { data := add(data, 0x20) }
+            {
+                sum := add(sum, mload(data))
+            }
+        }
+    }
+}
+```
+
+#### 访问外部变量、函数和库
+
+您可以使用名称访问 Solidity 变量和其他标识符。
+
+值类型的局部变量可直接在内联汇编中使用。它们都可以被读取和分配。
+
+引用内存的局部变量计算为内存中变量的地址，而不是值本身。这些变量也可以被赋值，但请注意，赋值只会改变指针而不是数据，尊重 Solidity 的内存管理是您的责任。请参阅[Solidity](https://docs.soliditylang.org/en/v0.8.11/assembly.html#conventions-in-solidity)中的约定。
+
+类似地，引用静态大小的 calldata 数组或 calldata 结构的局部变量计算为 calldata 中变量的地址，而不是值本身。也可以为变量分配一个新的偏移量，但请注意，不会执行任何验证以确保变量不会指向超出 `calldatasize()`。
+
+对于外部函数指针，可以使用 `x.address` 和 `x.selector` 访问地址和函数选择器。选择器由四个右对齐字节组成，这两个值都被可以分配。例如：
+
+```solidity
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity >=0.8.10 <0.9.0;
+
+contract C {
+    // Assigns a new selector and address to the return variable @fun
+    function combineToFunctionPointer(address newAddress, uint newSelector) public pure returns (function() external fun) {
+        assembly {
+            fun.selector := newSelector
+            fun.address  := newAddress
+        }
+    }
+}
+```
+
+对于动态的 calldata 数组，你可以通过 `x.offset` 和 `x.length` 访问他们的 calldata 偏移量（bytes为单位）和长度（元素的个数）。这两个表达式也可以赋值，但对于静态情况，不会执行任何验证来确保产生的数据区域在calldatasize()的范围内。
+
+对于本地存储变量或状态变量，单个 Yul 标识符是不够的，因为它们不一定占用单个完整的存储槽。因此，它们的“地址”由一个槽和该槽内的字节偏移量组成。要检索变量指向的槽 `x`，请使用 `x.slot`，并检索您使用的字节偏移量 `x.offset`。使用 `x` 自身会导致错误。
+
+你也可以为本地存储变量指针的 `.slot` 成员赋值。对于 struct、array、mapping，它们的 `offset` 永远为 0。虽然为状态变量的 `.slot `和 `.offset` 赋值是不可能的。
+
+局部变量可以被赋值：
+
+```solidity
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity >=0.7.0 <0.9.0;
+
+contract C {
+    uint b;
+    function f(uint x) public view returns (uint r) {
+        assembly {
+            // We ignore the storage slot offset, we know it is zero
+            // in this special case.
+            r := mul(x, sload(b.slot))
+        }
+    }
+}
+```
+
+> 警告
+>
+> 如果您访问跨度小于 256 位的类型的变量（例如`uint64`、`address`或`bytes16`），则不能对不属于该类型编码的位做出任何假设。特别是，不要假设它们为零。为了安全起见，在重要的上下文中使用数据之前，请务必正确清除数据： 要清除签名类型，您可以使用操作码： `uint32 x = f(); assembly { x := and(x, 0xffffffff) /* now use x */ }``signextend``assembly { signextend(<num_bytes_of_x_minus_one>, x) }`
+
+从 Solidity 0.6.0 开始，内联汇编变量的名称可能不会影响内联汇编块范围内可见的任何声明（包括变量、合同和函数声明）。
+
+从 Solidity 0.7.0 开始，在内联汇编块内声明的变量和函数可能不包含`.`，但 using`.`从内联汇编块外部访问 Solidity 变量是有效的。
+
+#### 要避免的事情
+
+内联汇编可能有一个相当高级的外观，但它实际上是非常低级的。函数调用、循环、if 和switch通过简单的重写规则进行转换，之后，汇编器为您做的唯一一件事就是重新排列函数式操作码、计算变量访问的堆栈高度以及删除汇编局部变量的堆栈槽当到达他们的块的末尾时。
+
+
+
+#### Solidity 中的约定
+
+与 EVM 汇编相比，Solidity 具有比 256 位更窄的类型，例如 `uint24`. 为提高效率，大多数算术运算忽略了类型可以短于 256 位这一事实，并且在必要时清除高阶位，即在将它们写入内存或执行比较之前不久。这意味着如果您从内联汇编中访问这样的变量，您可能必须先手动清除高阶位。
+
+Solidity 通过以下方式管理内存。在内存中的位置有一个“空闲内存指针” `0x40`。如果要分配内存，请使用从该指针指向的位置开始的内存并对其进行更新。不能保证之前没有使用过内存，因此你不能假设它的内容是零字节。没有释放或释放分配的内存的内置机制。这是一个汇编片段，可用于按照上述过程分配内存
+
+```solidity
+function allocate(length) -> pos {
+  pos := mload(0x40)
+  mstore(0x40, add(pos, length))
+}
+```
+
+内存的前 64 字节可用作“暂存空间”，用于短期分配。空闲内存指针之后的 32 个字节（即，从 开始`0x60`）意味着永久为零，并用作空动态内存数组的初始值。这意味着可分配内存从 开始`0x80`，这是空闲内存指针的初始值。
+
+Solidity 中的内存数组中的元素总是占据 32 字节的倍数（这对于 甚至是正确的`bytes1[]`，但对于`bytes`and则不是`string`）。多维内存数组是指向内存数组的指针。动态数组的长度存储在数组的第一个槽中，然后是数组元素。
+
+> 警告
+>
+> 静态大小的内存数组没有长度字段，但以后可能会添加它以允许在静态和动态大小的数组之间更好地转换，所以不要依赖这个。
+
+### 示例
+
+```solidity
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity >=0.4.16 <0.9.0;
+
+contract AssemblyExample {
+    uint public a;
+
+    function mul(uint b) public view returns (uint c) {
+        assembly {
+            c := mul(b, sload(a.slot))
+        }
+    }
+
+    function setA(uint a_) public {
+        assembly {
+            sstore(a.slot, a_)
+        }
+    }
+
+    function power(uint base, uint exponent) public pure returns (uint ret) {
+        assembly {
+            function power(base_, exponent_) -> result
+            {
+                switch exponent_
+                case 0 { result := 1 }
+                case 1 { result := base_ }
+                default
+                {
+                    result := power(mul(base_, base_), div(exponent_, 2))
+                    switch mod(exponent_, 2)
+                    case 1 { result := mul(base_, result) }
+                }
+            }
+            
+            ret := power(base, exponent)
+        }
+    }
+
+    /**
+     * @dev logical shift left y by x bits (y << x).
+     * if x is 3, y is 1, ret will be 8.
+     */
+    function shiftLeft(uint x, uint y) public pure returns (uint ret) {
+        assembly {
+            ret := shl(x, y)
+        }
+    }
+
+    function getCode(address _addr) public view returns (bytes memory o_code) {
+        assembly {
+            // retrieve the size of the code, this needs assembly
+            let size := extcodesize(_addr)
+            // allocate output byte array - this could also be done without assembly
+            // by using o_code = new bytes(size)
+            o_code := mload(0x40)
+            // new "memory end" including padding
+            mstore(0x40, add(o_code, and(add(add(size, 0x20), 0x1f), not(0x1f))))
+            // store length in memory
+            mstore(o_code, size)
+            // actually retrieve the code, this needs assembly
+            extcodecopy(_addr, add(o_code, 0x20), 0, size)
+        }
+    }
+
+    function getStorageKey(uint slot) public pure returns (bytes32) {
+        return bytes32(keccak256(abi.encodePacked(slot)));
+    }
+
+    function getStorageAt(uint slot) public view returns (bytes32 ret) {
+        assembly {
+            ret := sload(slot)
+        }
+    }
+
+    function getArrayDataSlotGivenIndex(
+        uint slot,
+        uint index
+    ) public pure returns (bytes32) {
+        return bytes32(uint(keccak256(abi.encodePacked(slot))) + index);
+    }
+
+    function getMapLocation(uint slot, uint key) public pure returns (uint) {
+        return uint(keccak256(abi.encodePacked(key, slot)));
+    }
+
+    function removeArrayLastElement(uint[] memory array) public pure returns (uint[] memory) {
+        assembly {
+            let length := mload(array)
+            mstore(array, sub(length, 1))
+        }
+        return array;
+    }
+
+    function removeArrayFisrtElement(uint[] memory array) public pure returns (uint[] memory) {
+        assembly {
+            let length := mload(array)
+            array := add(array, 0x20)
+            mstore(array, sub(length, 1))
+        }
+        return array;
+    }
+
+    // We know that we only access the array in bounds, so we can avoid the check.
+    // 0x20 needs to be added to an array because the first slot contains the
+    // array length.
+    function sumAsm(uint[] memory _data) public pure returns (uint sum) {
+        for (uint i = 0; i < _data.length; ++i) {
+            assembly {
+                sum := add(sum, mload(add(add(_data, 0x20), mul(i, 0x20))))
+            }
+        }
+    }
+}
+```
+
+
 
 ### Yul
 
