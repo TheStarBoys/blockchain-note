@@ -335,7 +335,7 @@ contract A {
 
 Solidity保留四个32字节的槽，特定的字节范围(包括端点)被使用如下：
 
-- `0x00` - `0x3f` (64 bytes): 为 hash 函数留出暂存空间（scratch spece）
+- `0x00` - `0x3f` (64 bytes): 为 hash 函数留出暂存空间（scratch space）
 - `0x40` - `0x5f` (32 bytes): 当前分配的内存大小(又称，空闲内存指针，free memory pointer)
 - `0x60` - `0x7f` (32 bytes): 零槽（zero slot）
 
@@ -444,6 +444,131 @@ contract Vault {
         return uint(keccak256(abi.encodePacked(key, slot)));
     }
 }
+```
+
+### 通过 web3 获取 storage 数据
+
+```bash
+$ geth attach http://localhost:8545
+# console
+> web3.eth.getStorageAt('0x086A75A13699B75604eF57AC1e564B810eb7e955', 0)
+> "0x01"
+```
+
+
+
+### 0x protocol 的 proxy 存储布局
+
+proxy 合约地址 0xDef1C0ded9bec7F1a1670819833240f027b25EfF
+
+它利用 StorageBucket 的设计模式，将全局唯一的 StorageId 映射到一个 slot 上。并且让 StorageId 的 slot 之间间隔 2^128，这意味着一个 Bucket 有连续的长度为 2^128 的 storage 可用，以此来避免所有的 feature 合约使用同一个 proxy 合约的存储上下文带来的 storage 容易冲突的情况。
+
+**LibStorage.sol**:
+
+```solidity
+pragma solidity ^0.6.5;
+pragma experimental ABIEncoderV2;
+
+
+/// @dev Common storage helpers
+library LibStorage {
+
+    /// @dev What to bit-shift a storage ID by to get its slot.
+    ///      This gives us a maximum of 2**128 inline fields in each bucket.
+    uint256 private constant STORAGE_SLOT_EXP = 128;
+
+    /// @dev Storage IDs for feature storage buckets.
+    ///      WARNING: APPEND-ONLY.
+    enum StorageId {
+        Proxy,
+        SimpleFunctionRegistry,
+        Ownable,
+        TokenSpender,
+        TransformERC20
+    }
+
+    /// @dev Get the storage slot given a storage ID. We assign unique, well-spaced
+    ///     slots to storage bucket variables to ensure they do not overlap.
+    ///     See: https://solidity.readthedocs.io/en/v0.6.6/assembly.html#access-to-external-variables-functions-and-libraries
+    /// @param storageId An entry in `StorageId`
+    /// @return slot The storage slot.
+    function getStorageSlot(StorageId storageId)
+        internal
+        pure
+        returns (uint256 slot)
+    {
+        // This should never overflow with a reasonable `STORAGE_SLOT_EXP`
+        // because Solidity will do a range check on `storageId` during the cast.
+        return (uint256(storageId) + 1) << STORAGE_SLOT_EXP;
+    }
+}
+```
+
+**LibOwnableStorage.sol**:
+
+```solidity
+/*
+
+  Copyright 2020 ZeroEx Intl.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+*/
+
+pragma solidity ^0.6.5;
+pragma experimental ABIEncoderV2;
+
+import "./LibStorage.sol";
+
+
+/// @dev Storage helpers for the `Ownable` feature.
+library LibOwnableStorage {
+
+    /// @dev Storage bucket for this feature.
+    struct Storage {
+        // The owner of this contract.
+        address owner; // slot 1020847100762815390390123822295304634368
+    }
+
+    /// @dev Get the storage bucket for this contract.
+    function getStorage() internal pure returns (Storage storage stor) {
+        uint256 storageSlot = LibStorage.getStorageSlot(
+            LibStorage.StorageId.Ownable
+        );
+        // Dip into assembly to change the slot pointed to by the local
+        // variable `stor`.
+        // See https://solidity.readthedocs.io/en/v0.6.8/assembly.html?highlight=slot#access-to-external-variables-functions-and-libraries
+        assembly { stor_slot := storageSlot }
+    }
+}
+```
+
+
+
+例如对于 Ownable feature 来说，它的 storage 开始位置为 (2+1) << 128：
+
+```python
+$ python3
+>>> (2+1)<<128
+1020847100762815390390123822295304634368
+```
+
+其 owner 变量的值为：
+
+```bash
+# console
+> web3.eth.getStorageAt('0xDef1C0ded9bec7F1a1670819833240f027b25EfF', '1020847100762815390390123822295304634368')
+> "0x000000000000000000000000618f9c67ce7bf1a50afa1e7e0238422601b0ff6e"
 ```
 
 
@@ -575,15 +700,15 @@ contract Vault {
 
   即它被编码为就好像它是一个具有 `k` 相同类型元素的元组一样。
 
-- `T[]` 其中 `X` 有 `k` 元素（ `k` 假定为类型 `uint256` ）：
+- `T[]` 其中 `X` 有 `k` 个元素（ `k` 假定为类型 `uint256` ）：
 
   `enc(X) = enc(k) enc([X[0], ..., X[k-1]])`
 
   即，它被编码为一个静态大小的数组 `k`，前缀为元素数。
 
-- `bytes`，长度 `k`（假定为类型 `uint256`）：
+- `bytes`，长度为 `k`（假定为类型 `uint256`）：
 
-  `enc(X) = enc(k) pad_right(X)`，即字节数被编码为一个 `uint256` 后跟作为字节序列 `X` 的实际值，然后是最小的零字节数，以至 `len(enc(X))` 是 32 的倍数。
+  `enc(X) = enc(k) pad_right(X)`，即字节数被编码为一个 `uint256` 后跟作为字节序列 `X` 的实际值，然后再最后填充零字节，将 `len(enc(X))` 填充为 32 的倍数。
 
 - `string`:
 
@@ -605,9 +730,9 @@ contract Vault {
 
 - `ufixed`: 与 `ufixed128x18` 的情况一样
 
-- `bytes<M>`: `enc(X)` 用零字节填充在后面使其长度为 32 字节的  `X` 的字节序列。
+- `bytes<M>`: `enc(X)` 用零字节填充在后面，使其长度为 32 字节的  `X` 的字节序列。
 
-请注意，对于任何 `X`，`len(enc(X))` 是 32 的倍数。
+请注意，**对于任何 `X`，`len(enc(X))` 是 32 的倍数**。
 
 ### 函数选择器和参数编码
 
@@ -667,9 +792,9 @@ contract Foo {
 如果我们想用参数`"dave"`，`true`和 `[1,2,3]` 调用 `sam`，我们将传总共 292 个字节，解释如下：
 
 - `0xa5643bf2`: Method ID。这是从签名 `sam(bytes,bool,uint256[])` 中得出的。请注意，`uint` 替换为它的规范表示 `uint256`。
-- `0x0000000000000000000000000000000000000000000000000000000000000060`：第一个参数(动态类型)的数据部分的位置，从参数块开始以字节为单位测量。在这种情况下为 `0x60`。
+- `0x0000000000000000000000000000000000000000000000000000000000000060`：第一个参数(动态类型)的数据部分的位置，从参数块开始以字节为单位测量。在这种情况下为 `0x60`（96字节=32+32+32）。
 - `0x0000000000000000000000000000000000000000000000000000000000000001`：第二个参数：布尔值 true。
-- `0x00000000000000000000000000000000000000000000000000000000000000a0`：第三个参数（动态类型）的数据部分的位置，以字节为单位测量。在这种情况下为 `0xa0`。
+- `0x00000000000000000000000000000000000000000000000000000000000000a0`：第三个参数（动态类型）的数据部分的位置，以字节为单位测量。在这种情况下为 `0xa0`（160字节=96+32+32）。
 - `0x0000000000000000000000000000000000000000000000000000000000000004`: 第一个参数的数据部分，它以字节数组的元素长度开始，在本例中为 4。
 - `0x6461766500000000000000000000000000000000000000000000000000000000`: 第一个参数的内容： `"dave"` 的 UTF-8（在这种情况下等于 ASCII）编码，在右侧填充到 32 个字节。
 - `0x0000000000000000000000000000000000000000000000000000000000000003`：第三个参数的数据部分，它以元素数组的长度开始，在本例中为 3。
@@ -747,7 +872,7 @@ contract Foo {
 6 - 0000000000000000000000000000000000000000000000000000000000000003 - encoding of 3
 ```
 
-偏移量 `a` 指向数组内容 `[1, 2]` 的开始，即第 2 行（64 字节）；因，.`a = 0x0000000000000000000000000000000000000000000000000000000000000040`
+偏移量 `a` 指向数组内容 `[1, 2]` 的开始，即第 2 行（64 字节）；因此，`a = 0x0000000000000000000000000000000000000000000000000000000000000040`
 
 偏移量 `b` 指向数组内容 `[3]` 的开始，即第 5 行（160 字节）；因此，`b = 0x00000000000000000000000000000000000000000000000000000000000000a0`
 
@@ -824,7 +949,7 @@ contract Foo {
 
 ### 事件
 
-事件是以太坊日志/事件监视协议的抽象。日志条目提供合约的地址、一系列最多四个主题（topic）和一些任意长度的二进制数据。事件利用现有的函数 ABI 来将其（连同接口规范）解释为正确类型的结构。
+事件是以太坊日志/事件监听协议的抽象。日志条目提供合约的地址、一系列最多四个主题（topic）和一些任意长度的二进制数据。事件利用现有的函数 ABI 来将其（连同接口规范）解释为正确类型的结构。
 
 给定一个事件名称和一系列事件参数，我们将它们分成两个子系列：那些被索引的和那些没有被索引的。那些被索引的，可能最多 3 个（对于非匿名事件）或 4 个（对于匿名事件），与事件签名的 Keccak Hash 一起使用以形成日志条目的主题。那些没有被索引的构成事件的字节数组。
 
@@ -840,7 +965,7 @@ contract Foo {
 
 
 
-对于最多 32 字节的所有类型的长度，`EVENT_INDEXED_ARGS` 数组直接包含值，填充或符号扩展（对于有符号整数）到 32 字节，就像常规 ABI 编码一样。但是，对于所有“复杂”类型或动态长度类型，包括所有数组、`string` 和 `bytes` 结构， `EVENT_INDEXED_ARGS `将包含特殊原地编码值的 Keccak 哈希（请参阅[索引事件参数的编码](https://docs.soliditylang.org/en/v0.8.11/abi-spec.html#indexed-event-encoding))，而不是直接编码值。这允许应用程序有效地查询动态长度类型的值（通过将编码值的哈希设置为主题），但使应用程序无法解码它们未查询的索引值。对于动态长度类型，应用程序开发人员面临在快速搜索预定值（如果参数被索引）和任意值的易读性（要求参数不被索引）之间的权衡。开发人员可以通过定义具有两个参数的事件来克服这种折衷并实现高效搜索和任意易读性 - 一个有索引，一个没有 - 旨在保持相同的值。
+对于长度最多 32 字节的所有类型，`EVENT_INDEXED_ARGS` 数组直接包含值，填充或符号扩展（对于有符号整数）到 32 字节，就像常规 ABI 编码一样。但是，对于所有“复杂”类型或动态长度类型，包括所有数组、`string` 和 `bytes` 结构， `EVENT_INDEXED_ARGS `将包含特殊原地编码值的 Keccak 哈希（请参阅[索引事件参数的编码](#索引事件参数的编码))，而不是直接编码值。这允许应用程序有效地查询动态长度类型的值（通过将编码值的哈希设置为主题），但使应用程序无法解码它们未查询的索引值。对于动态长度类型，应用程序开发人员面临在快速搜索预定值（如果参数被索引）和任意值的易读性（要求参数不被索引）之间的权衡。开发人员可以通过定义具有两个参数的事件来克服这种折衷并实现高效搜索和任意易读性 - 一个有索引，一个没有 - 旨在保持相同的值。
 
 
 
@@ -1082,7 +1207,7 @@ JSON 中的结果是：
 - 动态大小的类型，如 `string` ，`bytes` 或 `uint[]` 在没有长度字段的情况下进行编码。
 - `string` 或 `bytes` 的编码在末尾不应用填充，除非它是数组或结构的一部分（然后它被填充为 32 字节的倍数）。
 
-通常，由于缺少长度字段，只要有两个动态大小的元素，编码就会不明确。
+通常，**由于缺少长度字段，只要有两个动态大小的元素，编码就会不明确**。
 
 如果需要填充，可以使用显式类型转换：`abi.encodePacked(uint16(0x12)) == hex"0012" ` 。
 
@@ -1261,7 +1386,7 @@ contract C {
 
 #### Solidity 中的约定
 
-与 EVM 汇编相比，Solidity 具有比 256 位更窄的类型，例如 `uint24`. 为提高效率，大多数算术运算忽略了类型可以短于 256 位这一事实，并且在必要时清除高阶位，即在将它们写入内存或执行比较之前不久。这意味着如果您从内联汇编中访问这样的变量，您可能必须先手动清除高阶位。
+与 EVM 汇编相比，Solidity 具有比 256 位更窄的类型，例如 `uint24`. 为提高效率，大多数算术运算忽略了类型可以短于 256 位这一事实，并且在必要时，即在将它们写入内存或执行比较之前不久，清除高阶位。这意味着如果您从内联汇编中访问这样的变量，您可能必须先手动清除高阶位。
 
 Solidity 通过以下方式管理内存。在内存中的位置有一个“空闲内存指针” `0x40`。如果要分配内存，请使用从该指针指向的位置开始的内存并对其进行更新。不能保证之前没有使用过内存，因此你不能假设它的内容是零字节。没有释放或释放分配的内存的内置机制。这是一个汇编片段，可用于按照上述过程分配内存
 
