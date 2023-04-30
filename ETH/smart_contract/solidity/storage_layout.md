@@ -274,12 +274,6 @@ contract C is A, B {
 
 
 
-- [x] Execute evm bytecode
-- [x] Decode transaction logs to events
-- [x] Decode state variables from storage layout gengerated by solc
-- [x] Decode function arguments of contract creation and contract interaction
-- [x] Decode any state variable by given slot, offset, length and something else
-
 ### 通过 web3 获取 storage 数据
 
 ```bash
