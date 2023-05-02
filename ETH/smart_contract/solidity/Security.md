@@ -1,8 +1,179 @@
 # 怎样让智能合约更安全
 
-注意：除了下面的列表之外，您还可以 [在 Guy Lando 的知识列表](https://github.com/guylando/KnowledgeLists/blob/master/EthereumSmartContracts.md) 和 [Consensys GitHub 存储库](https://consensys.github.io/smart-contract-best-practices/) 中找到更多安全建议和最佳实践。
+注意：除了下面的列表之外，您还可以 [SWC](https://swcregistry.io/)， [在 Guy Lando 的知识列表](https://github.com/guylando/KnowledgeLists/blob/master/EthereumSmartContracts.md) 和 [Consensys GitHub 存储库](https://consensys.github.io/smart-contract-best-practices/) 中找到更多安全建议和最佳实践。
+
+并深入理解 [evm](https://ethereum.org/en/developers/docs/evm/) 的架构。
+
+## 漏洞检测技术
+
+### 程序分析
+
+程序分析方法分类：
+
+按照程序代码的文本形式分为：
+
+- EVM 字节码分析
+- 源代码（Solidity）分析
+
+
+
+按照是否运行程序代码：
+
+- 静态分析
+  - 控制流分析
+  - 数据流分析
+  - 抽象解释
+- 动态分析
+
+
+
+不同近似方式引起漏报和误报：
+
+![image-20230501120654612](https://img-thestarboys.oss-cn-beijing.aliyuncs.com/img/image-20230501120654612.png)
+
+
+
+#### 分析技术对比表
+
+| 方法     | 优点                   | 缺点                                 |
+| -------- | ---------------------- | ------------------------------------ |
+| 静态分析 | 分析速度快；覆盖全面； | 需要源代码；误报率高；可能存在漏报； |
+| 动态分析 | 不会误报；无需源代码； | 不能覆盖全流程；                     |
+|          |                        |                                      |
+
+
+
+#### 静态分析
+
+静态分析方法从语法或语义的层面分析程序文本（源代码或二进制），以推导其语法或语义性质．通过对源代码依据一定规则分析来实现，因此需要建立源代码特征库和规则库。随着漏洞数量增加，特征库也在不断增大，继而带来检测效率不断降低[7]。其目的较偏重于说明程序不包含某种错误. 多数静态方法存在误报，有的也同时存在漏报.
+
+静态分析方法难以在有限时间内判定抽象路径的可行性，这是导致误报的主要原因．换言之，这类方法对被分析程序的实际可达状态做上近似处理（over approximation） .
+
+
+
+静态程序分析源自于编译优化技术，它通过分析程序代码来求解关于程序特定性质的问题，是多种分析技术的集合，其中最基本的两类是控制流分析和数据流分析。
+
+控制流分析提取代码中的控制结构，以控制流图作为对程序中分支跳转关系的抽象，描述程序的所有可能执行路径。
+
+数据流分析内容较多，大致可以按照三个角度考察：流敏感／流不敏感，路径敏感／路径不敏感，上下文敏感／ 上下文不敏感．流敏感的分析考虑程序中语句的顺序，举例来说，一个流不敏感的指针分析可能认为 “变量 x 和 y 可能指向了同一位置”，而一个流敏感分析会认为“在某条语句执行后，变量 x 和 y 可能 指向了同一位置”；路径敏感的分析考虑了程序的控制流，比如一个分支条件是 x＞０，那么在条件不满足的分支下分析过程会假设 x <= 0，而在满足条件的分支则会假设x > 0 成立；上下文敏感的分析则处理过程调用，在分析目标函数的调用时，它将根据调用的上下文信息确保被调用函数能够返回到正确的调用点，而如果没有这种信息，返回时就必须考虑所有可能的调用点，因而丧失潜在的精度.
+
+
+
+抽象解释（Abstract Interpretation）：
+
+#### 动态分析
+
+此类工具的缺点在于过于依赖所使用的具体输入的典型性，只有在所选取的具体输入能够触发程序错误的情况下，动态分析工具才能捕获错误，程序的输入空间过大导致程序输入的选取不可能覆盖整个空间，而只能是其中一部分，这是导致动态分析工具产生漏报的根源.
+
+动态分析方法对程序的实际可达状态做下近似处理（under approximation）.
+
+##### 软件测试
+
+软件测试[6]目的有多种，功能性测试考察序是否正确实现了预期的功能；可靠性测试则尽量 选取广泛的测试数据运行程序以观察程序是否出现异常行为；由于软件开发是个进化的过程，期间会不断产生新的程序版本，回归测试用于检验新版本是否保留了旧版本的正确部分；安全性测试则可检测并识别程序中潜在的安全性缺陷，并验证该缺陷是否可被利用进而导致系统出现安全性问题．测试需要准备测试用例，为了考察测试用例集合是否能够真正说明问题以及能在多大程度上说明问题，研究者从覆盖率的角度提出多种测试用例的评价标准，主要包括语句覆盖率、分支覆盖率、分支组合覆盖率和路径覆盖率．手工创建测试用例需要测试人员花费大量精力和时间，因此如何设计算法自动生成测试用例以减轻测试工作的负担，成为测试方法研究的核心问题之一.
+
+1996年 Ferguson 和 Korel 将自动化测试用例生成的方法分为三类: 面向目标(Goal-Oriented) 的测试用例生成、面向路径的(Goal-Oriented) 测试用例生成以及随机化模糊测试(Random Fuzz)．前两种方法通过考察程序内部结构来选择测试数据，以覆盖某条指定语句或程序执行路径，因此也被称作**结构化测试或白盒测试**.
+
+**随机测试又称为黑盒模糊测试**，是一种将大量随机数据输入到目标程序中，通过监视程序运行过程中的异常来挖掘软件漏洞的方法．由于模糊测试不需要了解程序源代码，能较快地定位和确认安全漏洞，已成为软件安全性检测的重要方法和有效手段. 需要指出的是，*极小语义缺陷是指只能由程序输入中极小比例数据揭示的软件缺陷，而模糊测试则很难发现此类缺陷.* 
+
+做为一种动态分析方法，测试不会产生误报，但存在漏报，正如 Dijkstra 所言，“测试可有效地揭示程序包含错误，但并不能确保程序无错”．相对于静态分析的高误报率，很多公司为保证软件开发效率而容忍少量缺陷的存在，即接受漏报，拒绝误报， 这使得测试方法成为工业界保证软件质量的最常用方法.
+
+###### 随机模糊(Random Fuzz)
+
+可以分为两类：
+
+- Dumb Fuzzing，完全根据随机输入去发现问题。该方法实现简单，容易快速的触发漏洞的错误位置。由于没有针对性，因此效率低下。
+- Intelligent Fuzzing，通过研究目标软件的协议、输入、文件格式等方面内容，有针对性的构造测试用例，能够提高自动化检测的效率。
+
+###### 面向目标(Goal-Oriented)
+
+
+
+###### 面向路径(Path-Oriented)
+
+
+
+### 将程序性质表达为逻辑公式
+
+#### 符号执行
+
+[8]
+
+##### 面临的挑战
+
+路径爆炸（Path Explosion）：
+
+解决方案：
+
+- 启发式搜索（Search heuristics）
+- Interleaving random and symbolic execution
+- 修剪冗余路径（Pruning redundant paths）
+- Lazy test generation
+- Static path merging
+
+约束求解（Constraint Solving）：
+
+解决方案：
+
+- Irrelevant constraint elimination
+- Incremental solving
+
+内存建模（Memory Modeling）：
+
+解决方案：
+
+
+
+处理并发（Handling Concurrency）：Large real world programs are often concurrent. Because of the inherent non-determinism of such programs, testing is notoriously difficult. Concolic testing was successfully combined with a variant of partial order reduction to test concurrent programs effectively. This combined method provides one of the first technique to effectively test concurrent programs with complex data inputs.
+
+#### 程序正确性证明
+
+#### 模型检验
+
+#### 反例制导的谓词求精
+
+
+
+### 混合检测技术
+
+
+
+### 现状与挑战
+
+#### 现状
+
+
+
+#### 挑战
+
+- 后门及访问控制缺陷检测困难。由于后门和访问控制不会引起程序异常，并在逻辑上很难区分，所以常规漏洞检测方法难以发现后门及逻辑上的缺陷[7]。
+- 检测过程难以全部自动化，目前，Fuzzing 技术需要根据经验创建测试用例，并且自动化的检测结果需要根据经验进行进一步分析，以确定漏洞是否存在以及如何利用。
 
 ## 漏洞
+
+### 简介
+
+漏洞的基本属性[5]：
+
+- 漏洞类型
+- 分析和描述
+- 造成的后果
+- 严重程度
+- 利用需求
+- 环境特征
+
+与漏洞相关的对象包括：
+
+- 存在漏洞的合约/区块链
+- 相应的补丁和修复方法
+
+
+
+评价漏洞检测方法与工具的指标[6]：
+
+- 误报率：误报指算法报告了实际不存在的错误
+- 漏报率：漏报指算法遗漏了本来存在的错误
+
+
 
 ### 通用软件漏洞清单
 
@@ -75,93 +246,25 @@ contract Fund {
 
 请注意，重入攻击不仅会受 Ether transfer 影响，实际任何合约调用都会影响。此外，还需要考虑多合约调用的情况。一个被调用的合约可以修改你所依赖的另一个合约的状态的情况。
 
-#### gas 限制与循环
+#### 拒绝服务攻击（DoS, Denial of Service）
+
+拒绝服务攻击（denial of service，DOS） 就是用户想要进行的操作或服务请求无法被系统处理。DOS 的攻击方式有多种，其中针对智能合约的 DOS 攻击属于利用协议漏洞进行攻击的手段，攻击将导致合约在短时间内无法运行，或者某些情况下永久无法运行。
+
+##### gas 限制与循环
 
 没有固定迭代次数的循环，例如依赖于存储值的循环，必须谨慎使用：由于区块 gas 限制，交易只能消耗一定量的gas。无论是明确地还是仅仅由于正常操作，循环中的迭代次数都可能超过区块 gas 限制，这可能导致整个合约在某个点停滞不前。这可能不适用于 `view` 仅执行从区块链读取数据的功能。尽管如此，作为链上操作的一部分，其他合约可能会调用这些函数并让这些函数停止。请在合同文件中明确说明此类情况。
 
-#### 调用栈深度
+##### 调用栈深度
 
 外部函数调用可能随时失败，因为它们超过了最大调用堆栈大小限制 1024。在这种情况下，Solidity 会抛出异常。恶意参与者可能会在与您的合约交互之前将调用堆栈强制设置为高值。请注意，由于 [Tangerine Whistle](https://eips.ethereum.org/EIPS/eip-608) 硬分叉，[63/64 规则 ](https://eips.ethereum.org/EIPS/eip-150)使得调用堆栈深度攻击变得不切实际。另请注意，调用栈和表达式栈是不相关的，即使它们的大小限制为 1024 个堆栈槽。
 
 请注意，如果调用栈耗尽，`.send()` 不会抛出异常，而是返回 false。低级函数 `.call()` 、 `.delegatecall()` 和 `staticcall()` 的行为与 `.send()` 相同。
 
-#### 代理
+##### 其他类型的 call 调用失败
 
-如果你的合约可以充当代理，即它可以使用用户提供的数据调用任意合约，那么用户就可以伪装代理合约的身份。即便你有保护措施，但最好也使代理没有任何权限（甚至对自己也没有）。如果需要，您可以使用第二个代理来完成此操作：
+比如[忽略异常处理](#忽略异常处理)
 
-```solidity
-// SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.0;
-contract ProxyWithMoreFunctionality {
-    PermissionlessProxy proxy;
 
-    function callOther(address _addr, bytes memory _payload) public
-            returns (bool, bytes memory) {
-        return proxy.callOther(_addr, _payload);
-    }
-    // Other functions and other functionality
-}
-
-// This is the full contract, it has no other functionality and
-// requires no privileges to work.
-contract PermissionlessProxy {
-    function callOther(address _addr, bytes memory _payload) public
-            returns (bool, bytes memory) {
-        return _addr.call(_payload);
-    }
-}
-```
-
-#### tx.origin
-
-切勿使用 tx.origin 进行授权。假设你有一个这样的钱包合约：
-
-```solidity
-// SPDX-License-Identifier: GPL-3.0
-pragma solidity >=0.7.0 <0.9.0;
-// THIS CONTRACT CONTAINS A BUG - DO NOT USE
-contract TxUserWallet {
-    address owner;
-
-    constructor() {
-        owner = msg.sender;
-    }
-
-    function transferTo(address payable dest, uint amount) public {
-        // THE BUG IS RIGHT HERE, you must use msg.sender instead of tx.origin
-        require(tx.origin == owner);
-        dest.transfer(amount);
-    }
-}
-```
-
-现在有人欺骗你将以太币发送到这个攻击钱包的地址：
-
-```solidity
-// SPDX-License-Identifier: GPL-3.0
-pragma solidity >=0.7.0 <0.9.0;
-interface TxUserWallet {
-    function transferTo(address payable dest, uint amount) external;
-}
-
-contract TxAttackWallet {
-    address payable owner;
-
-    constructor() {
-        owner = payable(msg.sender);
-    }
-
-    receive() external payable {
-        TxUserWallet(msg.sender).transferTo(owner, msg.sender.balance);
-    }
-}
-```
-
-我们来看下调用链：
-
-User - > TxAttackWallet(msg.sender = user, tx.origin = user) -> TxUserWallet(msg.sender = TxAttackWallet, tx.origin = user)
-
-最后 `require(tx.origin == owner)` 判断通过，因此攻击钱包会立即耗尽您的所有资金。
 
 #### 算数运算的陷阱
 
@@ -215,337 +318,6 @@ uint numerator = 5;
 uint denominator = 2;
 ```
 
-#### 删除 Mapping
-
-Solidity 类型`mapping`（请参阅[Mapping Types](https://docs.soliditylang.org/en/v0.8.11/types.html#mapping-types)）是一种仅存储键值数据结构，它不跟踪分配了非零值的键。正因为如此，在没有关于写入键的额外信息的情况下清理映射是不可能的。
-
-如果 `mapping` 用作动态存储数组的基本类型，则 `delete` 或 `pop` 数组对 `mapping` 元素没有影响。例如，如果 `mapping` 作为 `struct` 的成员字段，且该 `struct` 作为动态存储数组的基本类型，在对该结构体或数组进行分配时，同样对 `mapping` 没有影响。
-
-```solidity
-// SPDX-License-Identifier: GPL-3.0
-pragma solidity >=0.6.0 <0.9.0;
-
-contract Map {
-    mapping (uint => uint)[] array;
-
-    function allocate(uint _newMaps) public {
-        for (uint i = 0; i < _newMaps; i++)
-            array.push();
-    }
-
-    function writeMap(uint _map, uint _key, uint _value) public {
-        array[_map][_key] = _value;
-    }
-
-    function readMap(uint _map, uint _key) public view returns (uint) {
-        return array[_map][_key];
-    }
-
-    function eraseMaps() public {
-        delete array;
-    }
-}
-```
-
-考虑下上面的示例以及这样的调用序列： `allocate(10)`, `writeMap(4, 128, 256)` 。此时，调用 `readMap(4, 128)` 将返回 256. 如果我们调用 `eraseMaps`，状态变量 `array` 的长度会被置为 0，但因为它的元素 `mapping` 不能被置为 0，因此 `mapping` 中的数据在合约存储中仍然有效。在删除 `array` 之后，调用 `allocate(5)` 允许我们再次访问 `array[4]` ，并且甚至在不调用 `writeMap` 的情况下，调用 `readMap(4, 128)` 将返回 256。
-
-如果你的 `mapping` 信息必须删除，请考虑使用 [iterable mapping](https://github.com/ethereum/dapp-bin/blob/master/library/iterable_mapping.sol) 类似的库，允许你遍历 key 与 value，并删除 value。
-
-#### 脏高位bit
-
-不占用全部的 32 字节的类型可能包含“脏高位bit”。如果你访问 `msg.data` 的话，这很重要。它会导致一个展延性风险：你可以精心制作一个交易，它用原始字节参数 `0xff000001` 和 `0x00000001` 调用 `f(uint8 x)` 。这两个参数用于此函数时，对于 `uint8 x` 而言，看起来都是 1。但 `msg.data` 是不同的，如果你使用 `keccak256(msg.data)` ，你将得到不同的结果。
-
-#### 注意抽象合约和接口之间的权衡
-
-接口和抽象合约都为智能合约提供了一种可定制和可重用的方法。Solidity 0.4.11 中引入的接口类似于抽象合约，但不能实现任何功能。接口也有限制，例如不能访问存储或从其他接口继承，这通常使抽象合约更实用。虽然，接口对于在实现之前设计合同肯定有用。此外，重要的是要记住，如果合约继承自抽象合约，它必须通过覆盖实现所有未实现的功能，否则它也将是抽象的。
-
-#### Fallback 函数
-
-##### 保持Fallback函数简单
-
-当发送一个没有参数的消息到合约（或者没有函数匹配）时，[Fallback 函数](https://solidity.readthedocs.io/en/latest/contracts.html#fallback-function) 被调用，并且当从 `.send()` 或 `.transfer()` 调用时只能使用 2300 gas 。如果您希望能够从 `.send()` 或 `.transfer()` 接收 Ether ，那么您在Fallback 函数中最多可以做的就是记录一个事件。如果需要更多 gas，请使用适当的函数。
-
-```solidity
-// bad
-function() payable { balances[msg.sender] += msg.value; }
-
-// good
-function deposit() payable external { balances[msg.sender] += msg.value; }
-
-function() payable { require(msg.data.length == 0); emit LogDepositReceived(msg.sender); }
-```
-
-##### 在 Fallback 函数中检查 data 长度
-
-由于 [Fallback 函数](https://solidity.readthedocs.io/en/latest/contracts.html#fallback-function) 不仅在普通 Ether transfer（没有数据）时调用，而且在没有其他函数匹配时调用，如果Fallback 函数仅用于记录接收到的 Ether，则应检查数据是否为空。否则，如果你的合约使用不正确，调用了不存在的函数，调用者将不会注意到。
-
-```solidity
-// bad
-function() payable { emit LogDepositReceived(msg.sender); }
-
-// good
-function() payable { require(msg.data.length == 0); emit LogDepositReceived(msg.sender); }
-```
-
-#### 将编译指示锁定到特定的编译器版本
-
-合约应该使用与它们经过最多测试的相同编译器版本和标志来部署。锁定 pragma 有助于确保合约不会被意外部署，例如使用可能具有更高风险未发现错误的最新编译器。合同也可能由其他人部署，并且 pragma 指示原作者预期的编译器版本。
-
-```solidity
-// bad
-pragma solidity ^0.4.4;
-
-
-// good
-pragma solidity 0.4.4;
-```
-
-注意：浮动 pragma 版本（即 `^0.4.25`）用 `0.4.26-nightly.2018.9.25` 来编译是 OK 的，但不应使用 nightly 来编译生产代码。
-
-**警告：**当合约打算供其他开发人员使用时，可以允许 Pragma 语句浮动，例如库或 EthPM 包中的合约。否则，开发人员需要手动更新编译指示才能在本地编译。
-
-#### 使用事件来监控合约活动
-
-有一种方法可以在部署后监控合约的活动是很有用的。实现这一点的一种方法是查看合约的所有交易，但这可能还不够，因为合约之间的消息调用不会记录在区块链中。此外，它只显示输入参数，而不是对状态进行的实际更改。事件也可用于触发用户界面中的功能。
-
-```solidity
-contract Charity {
-    mapping(address => uint) balances;
-
-    function donate() payable public {
-        balances[msg.sender] += msg.value;
-    }
-}
-
-contract Game {
-    function buyCoins() payable public {
-        // 5% goes to charity
-        charity.donate.value(msg.value / 20)();
-    }
-}
-```
-
-在这里， `Game` 合约将内部调用 `Charity.donate()`。该交易不会出现在 `Charity` 的外部交易列表中，而只在内部交易中可见。
-
-事件是记录合约中发生的事情的便捷方式。发出的事件与其他合同数据一起留在区块链中，可供将来审计。这是对上述示例的改进，使用事件来提供慈善机构的捐赠历史。
-
-```solidity
-contract Charity {
-    // define event
-    event LogDonate(uint _amount);
-
-    mapping(address => uint) balances;
-
-    function donate() payable public {
-        balances[msg.sender] += msg.value;
-        // emit event
-        emit LogDonate(msg.value);
-    }
-}
-
-contract Game {
-    function buyCoins() payable public {
-        // 5% goes to charity
-        charity.donate.value(msg.value / 20)();
-    }
-}
-```
-
-在这里，无论是否直接通过合同的所有交易都 `Charity` 将与捐赠的金额一起显示在该合同的事件列表中。
-
-#### 请注意，“built-in”函数可能会被隐藏
-
-目前可以在 Solidity 中 [隐藏](https://en.wikipedia.org/wiki/Variable_shadowing) 内置的全局变量。这允许合约覆盖built-in函数的功能，例如 `msg` 和 `revert()`。尽管这是 [有意为之](https://github.com/ethereum/solidity/issues/1249)，但它可能会误导合约用户对合约的真实行为。
-
-```solidity
-contract PretendingToRevert {
-    function revert() internal constant {}
-}
-
-contract ExampleContract is PretendingToRevert {
-    function somethingBad() public {
-        revert();
-    }
-}
-```
-
-合约用户（和审计员）应该了解他们打算使用的任何应用程序的完整智能合约源代码。
-
-#### 时间戳依赖
-
-使用时间戳执行合约中的关键功能时，有三个主要考虑因素，尤其是当操作涉及资金转移时。
-
-##### 时间戳操作
-
-请注意，区块的时间戳可以由矿工操纵。考虑这个[合约](https://etherscan.io/address/0xcac337492149bdb66b088bf5914bedfbf78ccc18#code)：
-
-```solidity
-uint256 constant private salt =  block.timestamp;
-
-function random(uint Max) constant private returns (uint256 result){
-    //get the best seed for randomness
-    uint256 x = salt * 100/Max;
-    uint256 y = salt * block.number/(salt % 5) ;
-    uint256 seed = block.number/3 + (salt % 300) + Last_Payout + y;
-    uint256 h = uint256(block.blockhash(seed));
-
-    return uint256((h / x)) % Max + 1; //random number between 1 and Max
-}
-```
-
-当合约使用时间戳播种一个随机数时，矿工实际上可以在区块被验证后的 15 秒内发布一个时间戳，从而有效地允许矿工预先计算一个更有利于他们中奖机会的选项。时间戳不是随机的，不应在该上下文中使用。
-
-##### 15秒规则
-
-[Ethereum 黄皮书](https://ethereum.github.io/yellowpaper/paper.pdf) 没有规定多少块可以随时间漂移的限制，但 [它确实规定](https://ethereum.stackexchange.com/a/5926/46821) 了每个时间戳应该大于其父时间戳。流行的以太坊协议实现 [Geth](https://github.com/ethereum/go-ethereum/blob/4e474c74dc2ac1d26b339c32064d0bac98775e77/consensus/ethash/consensus.go#L45) 和 [Parity](https://github.com/paritytech/parity-ethereum/blob/73db5dda8c0109bb6bc1392624875078f973be14/ethcore/src/verification/verification.rs#L296-L307) 都拒绝未来时间戳超过 15 秒的块。因此，评估时间戳使用的一个好的经验法则是：如果你的时间相关事件的规模可以变化15秒并保持完整性，那么使用 `block.timestamp`。
-
-##### 避免 block.number 用作时间戳
-
-可以使用 `block.number` 属性和 [平均出块时间](https://etherscan.io/chart/blocktime)来估计时间增量，但这不是未来的证据，因为块时间可能会改变（例如 [分叉重组](https://blog.ethereum.org/2015/08/08/chain-reorganisation-depth-expectations/) 和 [难度炸弹](https://github.com/ethereum/EIPs/issues/649)）。在跨越几天的销售中，15 秒规则允许人们获得更可靠的时间估计。
-
-见 [SWC-116](https://swcregistry.io/docs/SWC-116)
-
-#### 多重继承
-
-在 Solidity 中使用多重继承时，了解编译器如何构成继承图非常重要。
-
-```solidity
-contract Final {
-    uint public a;
-    function Final(uint f) public {
-        a = f;
-    }
-}
-
-contract B is Final {
-    int public fee;
-
-    function B(uint f) Final(f) public {
-    }
-    function setFee() public {
-        fee = 3;
-    }
-}
-
-contract C is Final {
-    int public fee;
-
-    function C(uint f) Final(f) public {
-    }
-    function setFee() public {
-        fee = 5;
-    }
-}
-
-contract A is B, C {
-  function A() public B(3) C(5) {
-      setFee();
-  }
-}
-```
-
-部署合约时，编译器将 从右到左 *线性化继承*（在关键字 *is* 之后 ，父项从最基类到最派生列出）。这是合约 A 的线性化：
-
-**最终 <- B <- C <- A**
-
-线性化的结果将产生 `fee` 5 的值，因为 C 是最衍生的合约。这似乎很明显，但想象一下 C 能够隐藏关键函数、重新排序布尔子句并导致开发人员编写可利用的合约的场景。静态分析目前不会引发被遮盖的函数的问题，因此必须手动检查。
-
-为了帮助做出贡献，Solidity 的 Github 有一个 包含所有继承相关问题的[项目](https://github.com/ethereum/solidity/projects/9#card-8027020)。
-
-见 [SWC-125](https://swcregistry.io/docs/SWC-125)
-
-#### 使用接口类型而不是地址来保证类型安全
-
-当函数将合约地址作为参数时，最好传递接口或合约类型而不是 原始的 `address`。如果函数在源代码的其他地方被调用，编译器将提供额外的类型安全保证。
-
-在这里，我们看到了两种选择：
-
-```
-contract Validator {
-    function validate(uint) external returns(bool);
-}
-
-contract TypeSafeAuction {
-    // good
-    function validateBet(Validator _validator, uint _value) internal returns(bool) {
-        bool valid = _validator.validate(_value);
-        return valid;
-    }
-}
-
-contract TypeUnsafeAuction {
-    // bad
-    function validateBet(address _addr, uint _value) internal returns(bool) {
-        Validator validator = Validator(_addr);
-        bool valid = validator.validate(_value);
-        return valid;
-    }
-}
-```
-
-然后可以从以下示例中看出使用上述 `TypeSafeAuction` 合约的好处 。如果 `validateBet()` 使用 `address` 参数而不是 `Validator` 合约类型，编译器将抛出此错误：
-
-```solidity
-contract NonValidator{}
-
-contract Auction is TypeSafeAuction {
-    NonValidator nonValidator;
-
-    function bet(uint _value) {
-        bool valid = validateBet(nonValidator, _value); // TypeError: Invalid type for argument in function call.
-                                                        // Invalid implicit conversion from contract NonValidator
-                                                        // to contract Validator requested.
-    }
-}
-```
-
-#### 避免 extcodesize 用于检查外部拥有帐户(EOA)
-
-以下修饰符（或类似的检查）通常用于验证调用是来自外部拥有的账户（EOA）还是合约账户：
-
-```solidity
-// bad
-modifier isNotContract(address _a) {
-  uint size;
-  assembly {
-    size := extcodesize(_a)
-  }
-    require(size == 0);
-     _;
-}
-```
-
-这个想法很简单：如果一个地址包含代码，它就不是一个 EOA，而是一个合约账户。但是， **合约在构建期间没有可用的源代码**。这意味着在构造函数运行时，它可以调用其他合约，但 `extcodesize` 它的地址返回零。下面是一个最小的例子，展示了如何绕过这个检查：
-
-```solidity
-contract OnlyForEOA {    
-    uint public flag;
-
-    // bad
-    modifier isNotContract(address _a){
-        uint len;
-        assembly { len := extcodesize(_a) }
-        require(len == 0);
-        _;
-    }
-
-    function setFlag(uint i) public isNotContract(msg.sender){
-        flag = i;
-    }
-}
-
-contract FakeEOA {
-    constructor(address _a) public {
-        OnlyForEOA c = OnlyForEOA(_a);
-        c.setFlag(1);
-    }
-}
-```
-
-
-
-**警告：**这个问题很微妙。如果您的目标是阻止其他合约调用您的合约，那么 `extcodesize` 检查可能就足够了。另一种方法是检查 的值 `(tx.origin == msg.sender)`，尽管这也 [有缺点](https://consensys.github.io/smart-contract-best-practices/recommendations/#avoid-using-txorigin)。
-
 
 
 #### 缺失、不足或不正确的访问控制
@@ -589,7 +361,7 @@ function internalAction() internal {
 }
 ```
 
-### 
+
 
 
 
@@ -663,6 +435,453 @@ contract Election {
 
 **注意：**使用 [函数修饰器](https://solidity.readthedocs.io/en/develop/contracts.html#function-modifiers) 替换多个函数中的重复条件检查，例如 `isOwner()`，否则在函数内部使用 `require` 或 `revert` 。这使您的智能合约代码更具可读性和更易于审计。
 
+#### 时间戳依赖
+
+使用时间戳执行合约中的关键功能时，有三个主要考虑因素，尤其是当操作涉及资金转移时。
+
+##### 时间戳操作
+
+请注意，区块的时间戳可以由矿工操纵。考虑这个[合约](https://etherscan.io/address/0xcac337492149bdb66b088bf5914bedfbf78ccc18#code)：
+
+```solidity
+uint256 constant private salt =  block.timestamp;
+
+function random(uint Max) constant private returns (uint256 result){
+    //get the best seed for randomness
+    uint256 x = salt * 100/Max;
+    uint256 y = salt * block.number/(salt % 5) ;
+    uint256 seed = block.number/3 + (salt % 300) + Last_Payout + y;
+    uint256 h = uint256(block.blockhash(seed));
+
+    return uint256((h / x)) % Max + 1; //random number between 1 and Max
+}
+```
+
+当合约使用时间戳播种一个随机数时，矿工实际上可以在区块被验证后的 15 秒内发布一个时间戳，从而有效地允许矿工预先计算一个更有利于他们中奖机会的选项。时间戳不是随机的，不应在该上下文中使用。
+
+##### 15秒规则
+
+[Ethereum 黄皮书](https://ethereum.github.io/yellowpaper/paper.pdf) 没有规定多少块可以随时间漂移的限制，但 [它确实规定](https://ethereum.stackexchange.com/a/5926/46821) 了每个时间戳应该大于其父时间戳。流行的以太坊协议实现 [Geth](https://github.com/ethereum/go-ethereum/blob/4e474c74dc2ac1d26b339c32064d0bac98775e77/consensus/ethash/consensus.go#L45) 和 [Parity](https://github.com/paritytech/parity-ethereum/blob/73db5dda8c0109bb6bc1392624875078f973be14/ethcore/src/verification/verification.rs#L296-L307) 都拒绝未来时间戳超过 15 秒的块。因此，评估时间戳使用的一个好的经验法则是：如果你的时间相关事件的规模可以变化15秒并保持完整性，那么使用 `block.timestamp`。
+
+##### 避免 block.number 用作时间戳
+
+可以使用 `block.number` 属性和 [平均出块时间](https://etherscan.io/chart/blocktime)来估计时间增量，但这不是未来的证据，因为块时间可能会改变（例如 [分叉重组](https://blog.ethereum.org/2015/08/08/chain-reorganisation-depth-expectations/) 和 [难度炸弹](https://github.com/ethereum/EIPs/issues/649)）。在跨越几天的销售中，15 秒规则允许人们获得更可靠的时间估计。
+
+见 [SWC-116](https://swcregistry.io/docs/SWC-116)
+
+#### 错误的处理资产
+
+##### 资产冻结
+
+
+
+##### 资产恶意转移
+
+
+
+#### 存储布局的误解
+
+##### 代理合约升级时存储布局改变
+
+
+
+##### 写任意存储位置（Write to Arbitrary Storage Location）
+
+
+
+#### 其他
+
+##### 代理
+
+如果你的合约可以充当代理，即它可以使用用户提供的数据调用任意合约，那么用户就可以伪装代理合约的身份。即便你有保护措施，但最好也使代理没有任何权限（甚至对自己也没有）。如果需要，您可以使用第二个代理来完成此操作：
+
+```solidity
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity ^0.8.0;
+contract ProxyWithMoreFunctionality {
+    PermissionlessProxy proxy;
+
+    function callOther(address _addr, bytes memory _payload) public
+            returns (bool, bytes memory) {
+        return proxy.callOther(_addr, _payload);
+    }
+    // Other functions and other functionality
+}
+
+// This is the full contract, it has no other functionality and
+// requires no privileges to work.
+contract PermissionlessProxy {
+    function callOther(address _addr, bytes memory _payload) public
+            returns (bool, bytes memory) {
+        return _addr.call(_payload);
+    }
+}
+```
+
+##### tx.origin
+
+切勿使用 tx.origin 进行授权。假设你有一个这样的钱包合约：
+
+```solidity
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity >=0.7.0 <0.9.0;
+// THIS CONTRACT CONTAINS A BUG - DO NOT USE
+contract TxUserWallet {
+    address owner;
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    function transferTo(address payable dest, uint amount) public {
+        // THE BUG IS RIGHT HERE, you must use msg.sender instead of tx.origin
+        require(tx.origin == owner);
+        dest.transfer(amount);
+    }
+}
+```
+
+现在有人欺骗你将以太币发送到这个攻击钱包的地址：
+
+```solidity
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity >=0.7.0 <0.9.0;
+interface TxUserWallet {
+    function transferTo(address payable dest, uint amount) external;
+}
+
+contract TxAttackWallet {
+    address payable owner;
+
+    constructor() {
+        owner = payable(msg.sender);
+    }
+
+    receive() external payable {
+        TxUserWallet(msg.sender).transferTo(owner, msg.sender.balance);
+    }
+}
+```
+
+我们来看下调用链：
+
+User - > TxAttackWallet(msg.sender = user, tx.origin = user) -> TxUserWallet(msg.sender = TxAttackWallet, tx.origin = user)
+
+最后 `require(tx.origin == owner)` 判断通过，因此攻击钱包会立即耗尽您的所有资金。
+
+##### 删除 Mapping
+
+Solidity 类型`mapping`（请参阅[Mapping Types](https://docs.soliditylang.org/en/v0.8.11/types.html#mapping-types)）是一种仅存储键值数据结构，它不跟踪分配了非零值的键。正因为如此，在没有关于写入键的额外信息的情况下清理映射是不可能的。
+
+如果 `mapping` 用作动态存储数组的基本类型，则 `delete` 或 `pop` 数组对 `mapping` 元素没有影响。例如，如果 `mapping` 作为 `struct` 的成员字段，且该 `struct` 作为动态存储数组的基本类型，在对该结构体或数组进行分配时，同样对 `mapping` 没有影响。
+
+```solidity
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity >=0.6.0 <0.9.0;
+
+contract Map {
+    mapping (uint => uint)[] array;
+
+    function allocate(uint _newMaps) public {
+        for (uint i = 0; i < _newMaps; i++)
+            array.push();
+    }
+
+    function writeMap(uint _map, uint _key, uint _value) public {
+        array[_map][_key] = _value;
+    }
+
+    function readMap(uint _map, uint _key) public view returns (uint) {
+        return array[_map][_key];
+    }
+
+    function eraseMaps() public {
+        delete array;
+    }
+}
+```
+
+考虑下上面的示例以及这样的调用序列： `allocate(10)`, `writeMap(4, 128, 256)` 。此时，调用 `readMap(4, 128)` 将返回 256. 如果我们调用 `eraseMaps`，状态变量 `array` 的长度会被置为 0，但因为它的元素 `mapping` 不能被置为 0，因此 `mapping` 中的数据在合约存储中仍然有效。在删除 `array` 之后，调用 `allocate(5)` 允许我们再次访问 `array[4]` ，并且甚至在不调用 `writeMap` 的情况下，调用 `readMap(4, 128)` 将返回 256。
+
+如果你的 `mapping` 信息必须删除，请考虑使用 [iterable mapping](https://github.com/ethereum/dapp-bin/blob/master/library/iterable_mapping.sol) 类似的库，允许你遍历 key 与 value，并删除 value。
+
+##### 脏高位bit
+
+不占用全部的 32 字节的类型可能包含“脏高位bit”。如果你访问 `msg.data` 的话，这很重要。它会导致一个展延性风险：你可以精心制作一个交易，它用原始字节参数 `0xff000001` 和 `0x00000001` 调用 `f(uint8 x)` 。这两个参数用于此函数时，对于 `uint8 x` 而言，看起来都是 1。但 `msg.data` 是不同的，如果你使用 `keccak256(msg.data)` ，你将得到不同的结果。
+
+##### 注意抽象合约和接口之间的权衡
+
+接口和抽象合约都为智能合约提供了一种可定制和可重用的方法。Solidity 0.4.11 中引入的接口类似于抽象合约，但不能实现任何功能。接口也有限制，例如不能访问存储或从其他接口继承，这通常使抽象合约更实用。虽然，接口对于在实现之前设计合同肯定有用。此外，重要的是要记住，如果合约继承自抽象合约，它必须通过覆盖实现所有未实现的功能，否则它也将是抽象的。
+
+##### Fallback 函数
+
+- 保持Fallback函数简单
+
+当发送一个没有参数的消息到合约（或者没有函数匹配）时，[Fallback 函数](https://solidity.readthedocs.io/en/latest/contracts.html#fallback-function) 被调用，并且当从 `.send()` 或 `.transfer()` 调用时只能使用 2300 gas 。如果您希望能够从 `.send()` 或 `.transfer()` 接收 Ether ，那么您在Fallback 函数中最多可以做的就是记录一个事件。如果需要更多 gas，请使用适当的函数。
+
+```solidity
+// bad
+function() payable { balances[msg.sender] += msg.value; }
+
+// good
+function deposit() payable external { balances[msg.sender] += msg.value; }
+
+function() payable { require(msg.data.length == 0); emit LogDepositReceived(msg.sender); }
+```
+
+- 在 Fallback 函数中检查 data 长度
+
+由于 [Fallback 函数](https://solidity.readthedocs.io/en/latest/contracts.html#fallback-function) 不仅在普通 Ether transfer（没有数据）时调用，而且在没有其他函数匹配时调用，如果Fallback 函数仅用于记录接收到的 Ether，则应检查数据是否为空。否则，如果你的合约使用不正确，调用了不存在的函数，调用者将不会注意到。
+
+```solidity
+// bad
+function() payable { emit LogDepositReceived(msg.sender); }
+
+// good
+function() payable { require(msg.data.length == 0); emit LogDepositReceived(msg.sender); }
+```
+
+##### 将编译指示锁定到特定的编译器版本
+
+合约应该使用与它们经过最多测试的相同编译器版本和标志来部署。锁定 pragma 有助于确保合约不会被意外部署，例如使用可能具有更高风险未发现错误的最新编译器。合同也可能由其他人部署，并且 pragma 指示原作者预期的编译器版本。
+
+```solidity
+// bad
+pragma solidity ^0.4.4;
+
+
+// good
+pragma solidity 0.4.4;
+```
+
+注意：浮动 pragma 版本（即 `^0.4.25`）用 `0.4.26-nightly.2018.9.25` 来编译是 OK 的，但不应使用 nightly 来编译生产代码。
+
+**警告：**当合约打算供其他开发人员使用时，可以允许 Pragma 语句浮动，例如库或 EthPM 包中的合约。否则，开发人员需要手动更新编译指示才能在本地编译。
+
+##### 使用事件来监控合约活动
+
+有一种方法可以在部署后监控合约的活动是很有用的。实现这一点的一种方法是查看合约的所有交易，但这可能还不够，因为合约之间的消息调用不会记录在区块链中。此外，它只显示输入参数，而不是对状态进行的实际更改。事件也可用于触发用户界面中的功能。
+
+```solidity
+contract Charity {
+    mapping(address => uint) balances;
+
+    function donate() payable public {
+        balances[msg.sender] += msg.value;
+    }
+}
+
+contract Game {
+    function buyCoins() payable public {
+        // 5% goes to charity
+        charity.donate.value(msg.value / 20)();
+    }
+}
+```
+
+在这里， `Game` 合约将内部调用 `Charity.donate()`。该交易不会出现在 `Charity` 的外部交易列表中，而只在内部交易中可见。
+
+事件是记录合约中发生的事情的便捷方式。发出的事件与其他合同数据一起留在区块链中，可供将来审计。这是对上述示例的改进，使用事件来提供慈善机构的捐赠历史。
+
+```solidity
+contract Charity {
+    // define event
+    event LogDonate(uint _amount);
+
+    mapping(address => uint) balances;
+
+    function donate() payable public {
+        balances[msg.sender] += msg.value;
+        // emit event
+        emit LogDonate(msg.value);
+    }
+}
+
+contract Game {
+    function buyCoins() payable public {
+        // 5% goes to charity
+        charity.donate.value(msg.value / 20)();
+    }
+}
+```
+
+在这里，无论是否直接通过合同的所有交易都 `Charity` 将与捐赠的金额一起显示在该合同的事件列表中。
+
+##### 请注意，“built-in”函数可能会被隐藏
+
+目前可以在 Solidity 中 [隐藏](https://en.wikipedia.org/wiki/Variable_shadowing) 内置的全局变量。这允许合约覆盖built-in函数的功能，例如 `msg` 和 `revert()`。尽管这是 [有意为之](https://github.com/ethereum/solidity/issues/1249)，但它可能会误导合约用户对合约的真实行为。
+
+```solidity
+contract PretendingToRevert {
+    function revert() internal constant {}
+}
+
+contract ExampleContract is PretendingToRevert {
+    function somethingBad() public {
+        revert();
+    }
+}
+```
+
+合约用户（和审计员）应该了解他们打算使用的任何应用程序的完整智能合约源代码。
+
+
+
+##### 多重继承
+
+在 Solidity 中使用多重继承时，了解编译器如何构成继承图非常重要。
+
+```solidity
+contract Final {
+    uint public a;
+    function Final(uint f) public {
+        a = f;
+    }
+}
+
+contract B is Final {
+    int public fee;
+
+    function B(uint f) Final(f) public {
+    }
+    function setFee() public {
+        fee = 3;
+    }
+}
+
+contract C is Final {
+    int public fee;
+
+    function C(uint f) Final(f) public {
+    }
+    function setFee() public {
+        fee = 5;
+    }
+}
+
+contract A is B, C {
+  function A() public B(3) C(5) {
+      setFee();
+  }
+}
+```
+
+部署合约时，编译器将 从右到左 *线性化继承*（在关键字 *is* 之后 ，父项从最基类到最派生列出）。这是合约 A 的线性化：
+
+**最终 <- B <- C <- A**
+
+线性化的结果将产生 `fee` 5 的值，因为 C 是最衍生的合约。这似乎很明显，但想象一下 C 能够隐藏关键函数、重新排序布尔子句并导致开发人员编写可利用的合约的场景。静态分析目前不会引发被遮盖的函数的问题，因此必须手动检查。
+
+为了帮助做出贡献，Solidity 的 Github 有一个 包含所有继承相关问题的[项目](https://github.com/ethereum/solidity/projects/9#card-8027020)。
+
+见 [SWC-125](https://swcregistry.io/docs/SWC-125)
+
+##### 使用接口类型而不是地址来保证类型安全
+
+当函数将合约地址作为参数时，最好传递接口或合约类型而不是 原始的 `address`。如果函数在源代码的其他地方被调用，编译器将提供额外的类型安全保证。
+
+在这里，我们看到了两种选择：
+
+```
+contract Validator {
+    function validate(uint) external returns(bool);
+}
+
+contract TypeSafeAuction {
+    // good
+    function validateBet(Validator _validator, uint _value) internal returns(bool) {
+        bool valid = _validator.validate(_value);
+        return valid;
+    }
+}
+
+contract TypeUnsafeAuction {
+    // bad
+    function validateBet(address _addr, uint _value) internal returns(bool) {
+        Validator validator = Validator(_addr);
+        bool valid = validator.validate(_value);
+        return valid;
+    }
+}
+```
+
+然后可以从以下示例中看出使用上述 `TypeSafeAuction` 合约的好处 。如果 `validateBet()` 使用 `address` 参数而不是 `Validator` 合约类型，编译器将抛出此错误：
+
+```solidity
+contract NonValidator{}
+
+contract Auction is TypeSafeAuction {
+    NonValidator nonValidator;
+
+    function bet(uint _value) {
+        bool valid = validateBet(nonValidator, _value); // TypeError: Invalid type for argument in function call.
+                                                        // Invalid implicit conversion from contract NonValidator
+                                                        // to contract Validator requested.
+    }
+}
+```
+
+##### 避免 extcodesize 用于检查外部拥有帐户(EOA)
+
+以下修饰符（或类似的检查）通常用于验证调用是来自外部拥有的账户（EOA）还是合约账户：
+
+```solidity
+// bad
+modifier isNotContract(address _a) {
+  uint size;
+  assembly {
+    size := extcodesize(_a)
+  }
+    require(size == 0);
+     _;
+}
+```
+
+这个想法很简单：如果一个地址包含代码，它就不是一个 EOA，而是一个合约账户。但是， **合约在构建期间没有可用的源代码**。这意味着在构造函数运行时，它可以调用其他合约，但 `extcodesize` 它的地址返回零。下面是一个最小的例子，展示了如何绕过这个检查：
+
+```solidity
+contract OnlyForEOA {    
+    uint public flag;
+
+    // bad
+    modifier isNotContract(address _a){
+        uint len;
+        assembly { len := extcodesize(_a) }
+        require(len == 0);
+        _;
+    }
+
+    function setFlag(uint i) public isNotContract(msg.sender){
+        flag = i;
+    }
+}
+
+contract FakeEOA {
+    constructor(address _a) public {
+        OnlyForEOA c = OnlyForEOA(_a);
+        c.setFlag(1);
+    }
+}
+```
+
+
+
+**警告：**这个问题很微妙。如果您的目标是阻止其他合约调用您的合约，那么 `extcodesize` 检查可能就足够了。另一种方法是检查 的值 `(tx.origin == msg.sender)`，尽管这也 [有缺点](https://consensys.github.io/smart-contract-best-practices/recommendations/#avoid-using-txorigin)。
+
+
+
+##### front-running
+
+[front-running](https://quillaudits.medium.com/front-running-and-sandwich-attack-explained-quillaudits-de1e8ff3356d#:~:text=A%20front%2Drunning%20attack%20occurs,being%20executed%20before%20the%20users.)
+
+
+
+##### 短地址攻击
+
+
+
+##### 代码注入
+
 
 
 ### 区块链平台层面
@@ -672,12 +891,6 @@ contract Election {
 您在智能合约中使用的所有内容都是公开可见的，甚至标记为 的局部变量和状态变量`private`。
 
 如果您不想让矿工作弊，那么在智能合约中使用随机数是非常棘手的。
-
-
-
-#### front-running
-
-[front-running](https://quillaudits.medium.com/front-running-and-sandwich-attack-explained-quillaudits-de1e8ff3356d#:~:text=A%20front%2Drunning%20attack%20occurs,being%20executed%20before%20the%20users.)
 
 
 
@@ -724,6 +937,34 @@ Digital signatures can be used for identity authentication. However, by intercep
 ![image-20230430182152468](https://img-thestarboys.oss-cn-beijing.aliyuncs.com/img/image-20230430182152468.png)
 
 *Fix Scheme*. Add an incremental nonce, the name of the blockchain and the address of the calling user into the signature. Use the information submitted by the calling user and the shared nonce to construct the hash value (i.e., byte32 *h* in *transferProxy*) to verify the signature [3].
+
+
+
+## 智能合约漏洞检测方法
+
+由于区块链不可篡改性，需要在上链前把智能合约中存在的漏洞进行检查，避免存在漏洞的智能合约被部署上链。本章介绍了形式化验证、符号执行、模糊测试以及机器学习等几类智能合约漏洞检测的方法，并分别介绍了对应方法所使用的一些工具[4]。
+
+### 利用形式化验证的审计方法
+
+
+
+### 利用符号执行的审计方法
+
+
+
+### 利用模糊测试的审计方法
+
+
+
+### 利用机器学习的审计方法
+
+
+
+### 利用其他方法的漏洞检测技术
+
+
+
+### 各类检测方法存在的问题
 
 
 
@@ -873,6 +1114,10 @@ The Ponzi scheme, a classic fraud, can acquire a large amount of money and have 
 
 ![image-20230430222502411](https://img-thestarboys.oss-cn-beijing.aliyuncs.com/img/image-20230430222502411.png)
 
+## 区块链安全的重大事件
+
+![image-20230430230418763](https://img-thestarboys.oss-cn-beijing.aliyuncs.com/img/image-20230430230418763.png)
+
 ## 参考
 
 [1] [Solidity: Security Considerations](https://docs.soliditylang.org/en/v0.8.11/security-considerations.html)
@@ -881,3 +1126,12 @@ The Ponzi scheme, a classic fraud, can acquire a large amount of money and have 
 
 [3] Huang Y, Bian Y, Li R, et al. Smart contract security: A software lifecycle perspective[J]. IEEE Access, 2019, 7: 150184-150202.
 
+[4] 李雷孝, 郑岳, 高昊昱, 等. 智能合约漏洞检测研究综述[J]. 计算机科学与探索, 2022, 16(11): 2456.
+
+[5] 单国栋, 戴英侠, 王航. 计算机漏洞分类研究[J]. 计算机工程, 2002, 28(10): 3-6.
+
+[6] 李舟军, 张俊贤, 廖湘科, 等. 软件安全漏洞检测技术[J]. 计算机学报, 2015, 38(4): 717-732.
+
+[7] 宋超臣, 黄俊强, 王大萌, 等. 计算机安全漏洞检测技术综述[J]. 信息网络安全, 2012 (1): 77-79.
+
+[8] Cadar C, Sen K. Symbolic execution for software testing: three decades later[J]. Communications of the ACM, 2013, 56(2): 82-90.
