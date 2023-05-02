@@ -41,11 +41,11 @@
 - 通过在前面添加一些字节，例如在前面添加0x00用于叶子结点，0x01中间结点。下面给出了具体的例子：
 
 ```
-hash(0x01 + hash(0x00+L1) + hash(0x00+L2)) hash(0x01 + hash(0x00+L3) + hash(0x00+L4))
+hash(0x01 + hash(0x00+L1) + hash(0x00+L2))	hash(0x01 + hash(0x00+L3) + hash(0x00+L4))
 
-hash(0x00+L1)		hash(0x00+L2)		hash(0x00+L3)		hash(0x00+L4)
+hash(0x00+L1)		hash(0x00+L2)								hash(0x00+L3)		hash(0x00+L4)
 
-L1							L2							L3							L4
+L1							L2													L3							L4
 ```
 
 
